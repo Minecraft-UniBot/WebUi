@@ -19,7 +19,7 @@ defineProps({
 
 <template>
   <DropdownMenuRoot>
-    <DropdownMenuTrigger as-child>
+    <DropdownMenuTrigger>
       <slot name="trigger" />
     </DropdownMenuTrigger>
     <DropdownMenuPortal>
@@ -50,7 +50,14 @@ defineProps({
   </DropdownMenuRoot>
 </template>
 
-<style scoped>
+<style>
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
 .ui-dropdown-content {
   min-width: 168px;
   background: var(--surface);
@@ -59,15 +66,11 @@ defineProps({
   box-shadow: var(--shadow-md);
   padding: var(--space-1);
   z-index: 150;
-  animation: dropdown-in 150ms ease-out;
+  animation: dropdown-in var(--transition);
 }
+</style>
 
-@keyframes dropdown-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
+<style scoped>
 
 .ui-dropdown-item {
   display: flex;
