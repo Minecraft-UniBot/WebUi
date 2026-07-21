@@ -1,5 +1,6 @@
 /**
- * 配置 Store：配置值 + Schema + 差异计算与保存
+ * 配置 Store：Config.toml 配置值 + Schema + 差异计算与保存
+ * 同时管理 .env 环境变量与 pyproject.toml 中的 NoneBot 插件/适配器
  */
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
@@ -12,6 +13,20 @@ export const useConfigStore = defineStore('config', () => {
   const draft = ref(null) // 编辑中的副本
   const loading = ref(false)
   const saving = ref(false)
+
+  // .env 环境变量
+  const env_values = ref({})
+  const env_schema = ref([])
+  const env_groups = ref([])
+  const env_draft = ref({})
+  const env_loading = ref(false)
+  const env_saving = ref(false)
+
+  // pyproject.toml NoneBot 配置
+  const nonebot_adapters = ref([])
+  const nonebot_plugins = ref([])
+  const nonebot_plugin_dirs = ref([])
+  const nonebot_loading = ref(false)
 
   /** 草稿相对原配置的变更项：[{ key, label, old_value, new_value }] */
   const changes = computed(() => {
@@ -29,6 +44,21 @@ export const useConfigStore = defineStore('config', () => {
 
   const has_changes = computed(() => changes.value.length > 0)
 
+  /** env 草稿变更项 */
+  const env_changes = computed(() => {
+    const result = []
+    for (const field of env_schema.value) {
+      const old_value = env_values.value[field.key]
+      const new_value = env_draft.value[field.key]
+      if (JSON.stringify(old_value ?? field.default) !== JSON.stringify(new_value ?? field.default)) {
+        result.push({ key: field.key, label: field.label, old_value, new_value })
+      }
+    }
+    return result
+  })
+
+  const has_env_changes = computed(() => env_changes.value.length > 0)
+
   async function fetch_all() {
     loading.value = true
     try {
@@ -44,14 +74,47 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
+  async function fetch_env() {
+    env_loading.value = true
+    try {
+      const data = await http.get('/api/config/env')
+      env_values.value = data.values || {}
+      env_schema.value = data.schema || []
+      env_groups.value = data.groups || []
+      env_draft.value = JSON.parse(JSON.stringify(data.values || {}))
+    } finally {
+      env_loading.value = false
+    }
+  }
+
+  async function fetch_nonebot() {
+    nonebot_loading.value = true
+    try {
+      const data = await http.get('/api/config/nonebot')
+      nonebot_adapters.value = data.adapters || []
+      nonebot_plugins.value = data.plugins || []
+      nonebot_plugin_dirs.value = data.plugin_dirs || []
+    } finally {
+      nonebot_loading.value = false
+    }
+  }
+
   function update_field(key, value) {
     draft.value = set_nested(draft.value, key, value)
+  }
+
+  function update_env_field(key, value) {
+    env_draft.value = { ...env_draft.value, [key]: value }
   }
 
   function reset_draft() {
     if (config_data.value) {
       draft.value = JSON.parse(JSON.stringify(config_data.value))
     }
+  }
+
+  function reset_env_draft() {
+    env_draft.value = JSON.parse(JSON.stringify(env_values.value))
   }
 
   /** 仅提交变更字段（PATCH 深合并） */
@@ -76,6 +139,46 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
+  /** 保存 .env 变更 */
+  async function save_env_changes() {
+    if (!has_env_changes.value) return
+    env_saving.value = true
+    try {
+      const patch = {}
+      for (const change of env_changes.value) {
+        patch[change.key] = change.new_value
+      }
+      await http.patch('/api/config/env', patch)
+      await fetch_env()
+    } finally {
+      env_saving.value = false
+    }
+  }
+
+  /** 添加适配器 */
+  async function add_adapter(name, module_name) {
+    await http.post('/api/config/nonebot/adapters', { name, module_name })
+    await fetch_nonebot()
+  }
+
+  /** 移除适配器 */
+  async function remove_adapter(name, module_name) {
+    await http.delete('/api/config/nonebot/adapters', { body: { name, module_name } })
+    await fetch_nonebot()
+  }
+
+  /** 添加插件 */
+  async function add_plugin(name, module_name) {
+    await http.post('/api/config/nonebot/plugins', { name, module_name })
+    await fetch_nonebot()
+  }
+
+  /** 移除插件 */
+  async function remove_plugin(name, module_name) {
+    await http.delete('/api/config/nonebot/plugins', { body: { name, module_name } })
+    await fetch_nonebot()
+  }
+
   return {
     config_data,
     schema,
@@ -88,5 +191,28 @@ export const useConfigStore = defineStore('config', () => {
     update_field,
     reset_draft,
     save_changes,
+    // env
+    env_values,
+    env_schema,
+    env_groups,
+    env_draft,
+    env_loading,
+    env_saving,
+    env_changes,
+    has_env_changes,
+    fetch_env,
+    update_env_field,
+    reset_env_draft,
+    save_env_changes,
+    // nonebot
+    nonebot_adapters,
+    nonebot_plugins,
+    nonebot_plugin_dirs,
+    nonebot_loading,
+    fetch_nonebot,
+    add_adapter,
+    remove_adapter,
+    add_plugin,
+    remove_plugin,
   }
 })

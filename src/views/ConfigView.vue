@@ -10,14 +10,46 @@ import Textarea from '@/components/ui/Textarea.vue'
 import Switch from '@/components/ui/Switch.vue'
 import Dialog from '@/components/ui/Dialog.vue'
 import Spinner from '@/components/ui/Spinner.vue'
+import Tabs from '@/components/ui/Tabs.vue'
 import { get_nested } from '@/utils/format'
 
 const config_store = useConfigStore()
 const toast = use_toast()
-const { schema, draft, loading, saving, changes, has_changes } = storeToRefs(config_store)
+const {
+  schema,
+  draft,
+  loading,
+  saving,
+  changes,
+  has_changes,
+  env_schema,
+  env_groups,
+  env_draft,
+  env_loading,
+  env_saving,
+  env_changes,
+  has_env_changes,
+  nonebot_adapters,
+  nonebot_plugins,
+  nonebot_plugin_dirs,
+  nonebot_loading,
+} = storeToRefs(config_store)
 
+const active_tab = ref('toml')
 const active_group = ref('')
+const active_env_group = ref('')
 const diff_open = ref(false)
+const env_diff_open = ref(false)
+
+// 添加适配器/插件的表单
+const adapter_form = ref({ name: '', module_name: '' })
+const plugin_form = ref({ name: '', module_name: '' })
+
+const tabs = [
+  { value: 'toml', label: 'Config.toml', icon: 'lucide:file-cog' },
+  { value: 'env', label: '环境变量', icon: 'lucide:terminal' },
+  { value: 'nonebot', label: '插件与适配器', icon: 'lucide:puzzle' },
+]
 
 const groups = computed(() => schema.value?.groups || [])
 
@@ -28,21 +60,36 @@ onMounted(async () => {
   } catch (error) {
     toast.error(error.message || '获取配置失败')
   }
+  config_store.fetch_env().catch(() => {})
+  config_store.fetch_nonebot().catch(() => {})
+  if (env_groups.value.length > 0) active_env_group.value = env_groups.value[0].name
 })
 
 function fields_of(group) {
   return (schema.value?.fields || []).filter((field) => group.keys.includes(field.key))
 }
 
+function env_fields_of(group) {
+  return env_schema.value.filter((field) => group.keys.includes(field.key))
+}
+
 function draft_value(key) {
   return get_nested(draft.value, key)
+}
+
+function env_draft_value(key) {
+  return env_draft.value[key]
 }
 
 function handle_update(key, value) {
   config_store.update_field(key, value)
 }
 
-// 列表编辑器
+function handle_env_update(key, value) {
+  config_store.update_env_field(key, value)
+}
+
+// 列表编辑器（Config.toml）
 function add_list_item(key) {
   const current = draft_value(key)
   handle_update(key, [...(current || []), ''])
@@ -58,6 +105,24 @@ function remove_list_item(key, index) {
   const current = [...(draft_value(key) || [])]
   current.splice(index, 1)
   handle_update(key, current)
+}
+
+// 列表编辑器（.env）
+function add_env_list_item(key) {
+  const current = env_draft_value(key)
+  handle_env_update(key, [...(current || []), ''])
+}
+
+function update_env_list_item(key, index, value) {
+  const current = [...(env_draft_value(key) || [])]
+  current[index] = value
+  handle_env_update(key, current)
+}
+
+function remove_env_list_item(key, index) {
+  const current = [...(env_draft_value(key) || [])]
+  current.splice(index, 1)
+  handle_env_update(key, current)
 }
 
 function display_value(value) {
@@ -76,6 +141,62 @@ async function confirm_save() {
     toast.error(error.message || '保存失败')
   }
 }
+
+async function confirm_env_save() {
+  try {
+    await config_store.save_env_changes()
+    toast.success('环境变量已保存，重启后生效')
+    env_diff_open.value = false
+  } catch (error) {
+    toast.error(error.message || '保存失败')
+  }
+}
+
+async function submit_add_adapter() {
+  if (!adapter_form.value.name || !adapter_form.value.module_name) {
+    toast.error('请填写适配器名称和模块路径')
+    return
+  }
+  try {
+    await config_store.add_adapter(adapter_form.value.name, adapter_form.value.module_name)
+    toast.success('适配器已添加，重启后生效')
+    adapter_form.value = { name: '', module_name: '' }
+  } catch (error) {
+    toast.error(error.message || '添加失败')
+  }
+}
+
+async function submit_remove_adapter(adapter) {
+  try {
+    await config_store.remove_adapter(adapter.name, adapter.module_name)
+    toast.success('适配器已移除，重启后生效')
+  } catch (error) {
+    toast.error(error.message || '移除失败')
+  }
+}
+
+async function submit_add_plugin() {
+  if (!plugin_form.value.module_name) {
+    toast.error('请填写插件模块路径')
+    return
+  }
+  try {
+    await config_store.add_plugin(plugin_form.value.name || plugin_form.value.module_name, plugin_form.value.module_name)
+    toast.success('插件已添加，重启后生效')
+    plugin_form.value = { name: '', module_name: '' }
+  } catch (error) {
+    toast.error(error.message || '添加失败')
+  }
+}
+
+async function submit_remove_plugin(module_name) {
+  try {
+    await config_store.remove_plugin(module_name, module_name)
+    toast.success('插件已移除，重启后生效')
+  } catch (error) {
+    toast.error(error.message || '移除失败')
+  }
+}
 </script>
 
 <template>
@@ -83,133 +204,315 @@ async function confirm_save() {
     <div class="page-header">
       <div>
         <h1 class="page-title">配置中心</h1>
-        <p class="page-desc">修改后保存将写回 Config.toml 并热更新</p>
-      </div>
-      <div class="page-actions">
-        <Button variant="ghost" :disabled="!has_changes" @click="config_store.reset_draft()">
-          撤销修改
-        </Button>
-        <Button variant="primary" :disabled="!has_changes" @click="diff_open = true">
-          <Icon icon="lucide:save" width="15" />
-          保存修改
-          <span v-if="has_changes" class="change-count">{{ changes.length }}</span>
-        </Button>
+        <p class="page-desc">管理 Config.toml、环境变量与 NoneBot 插件/适配器</p>
       </div>
     </div>
 
-    <div v-if="loading && !draft" class="card">
-      <div class="loading-block"><Spinner :size="18" /> 加载配置中…</div>
-    </div>
-
-    <div v-else class="config-layout">
-      <!-- 分组导航 -->
-      <nav class="group-nav card">
-        <button
-          v-for="group in groups"
-          :key="group.name"
-          class="group-item"
-          :class="{ 'group-item--active': active_group === group.name }"
-          @click="active_group = group.name"
-        >
-          {{ group.name }}
-          <span
-            v-if="group.keys.some((key) => changes.some((c) => c.key === key))"
-            class="group-dot"
-          />
-        </button>
-      </nav>
-
-      <!-- 字段表单 -->
-      <section class="card config-panel">
-        <div class="card-header">
-          <h3 class="card-title">{{ active_group }}</h3>
+    <Tabs v-model="active_tab" :tabs="tabs">
+      <!-- Config.toml 配置 -->
+      <template #toml>
+        <div class="tab-actions">
+          <Button variant="ghost" :disabled="!has_changes" @click="config_store.reset_draft()">
+            撤销修改
+          </Button>
+          <Button variant="primary" :disabled="!has_changes" @click="diff_open = true">
+            <Icon icon="lucide:save" width="15" />
+            保存修改
+            <span v-if="has_changes" class="change-count">{{ changes.length }}</span>
+          </Button>
         </div>
-        <div class="field-list">
-          <div
-            v-for="field in fields_of(groups.find((g) => g.name === active_group) || { keys: [] })"
-            :key="field.key"
-            class="field-row"
-            :class="{ 'field-row--changed': changes.some((c) => c.key === field.key) }"
-          >
-            <div class="field-meta">
-              <label class="field-label">
-                {{ field.label }}
-                <span class="mono field-key">{{ field.key }}</span>
-              </label>
-              <p class="field-desc">{{ field.description }}</p>
+
+        <div v-if="loading && !draft" class="card">
+          <div class="loading-block"><Spinner :size="18" /> 加载配置中…</div>
+        </div>
+
+        <div v-else class="config-layout">
+          <nav class="group-nav card">
+            <button
+              v-for="group in groups"
+              :key="group.name"
+              class="group-item"
+              :class="{ 'group-item--active': active_group === group.name }"
+              @click="active_group = group.name"
+            >
+              {{ group.name }}
+              <span
+                v-if="group.keys.some((key) => changes.some((c) => c.key === key))"
+                class="group-dot"
+              />
+            </button>
+          </nav>
+
+          <section class="card config-panel">
+            <div class="card-header">
+              <h3 class="card-title">{{ active_group }}</h3>
             </div>
-
-            <div class="field-control">
-              <!-- 开关 -->
-              <Switch
-                v-if="field.type === 'boolean'"
-                :model-value="Boolean(draft_value(field.key))"
-                @update:model-value="(value) => handle_update(field.key, value)"
-              />
-
-              <!-- 密码/密钥 -->
-              <Input
-                v-else-if="field.type === 'secret'"
-                type="password"
-                :model-value="draft_value(field.key) ?? ''"
-                placeholder="留空则不修改"
-                @update:model-value="(value) => handle_update(field.key, value)"
-              />
-
-              <!-- 数字 -->
-              <Input
-                v-else-if="field.type === 'number'"
-                type="number"
-                :model-value="draft_value(field.key) ?? 0"
-                @update:model-value="(value) => handle_update(field.key, Number(value))"
-              />
-
-              <!-- 长文本 -->
-              <Textarea
-                v-else-if="field.type === 'text'"
-                :model-value="draft_value(field.key) ?? ''"
-                @update:model-value="(value) => handle_update(field.key, value)"
-              />
-
-              <!-- 列表 -->
-              <div v-else-if="field.type === 'list'" class="list-editor">
-                <div
-                  v-for="(item, index) in draft_value(field.key) || []"
-                  :key="index"
-                  class="list-item"
-                >
-                  <Input
-                    :model-value="item"
-                    @update:model-value="(value) => update_list_item(field.key, index, value)"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon-only
-                    @click="remove_list_item(field.key, index)"
-                  >
-                    <Icon icon="lucide:x" width="14" />
-                  </Button>
+            <div class="field-list">
+              <div
+                v-for="field in fields_of(groups.find((g) => g.name === active_group) || { keys: [] })"
+                :key="field.key"
+                class="field-row"
+                :class="{ 'field-row--changed': changes.some((c) => c.key === field.key) }"
+              >
+                <div class="field-meta">
+                  <label class="field-label">
+                    {{ field.label }}
+                    <span class="mono field-key">{{ field.key }}</span>
+                  </label>
+                  <p class="field-desc">{{ field.description }}</p>
                 </div>
-                <Button variant="secondary" size="sm" @click="add_list_item(field.key)">
-                  <Icon icon="lucide:plus" width="13" />
-                  添加一项
-                </Button>
+
+                <div class="field-control">
+                  <Switch
+                    v-if="field.type === 'boolean'"
+                    :model-value="Boolean(draft_value(field.key))"
+                    @update:model-value="(value) => handle_update(field.key, value)"
+                  />
+                  <Input
+                    v-else-if="field.type === 'secret'"
+                    type="password"
+                    :model-value="draft_value(field.key) ?? ''"
+                    placeholder="留空则不修改"
+                    @update:model-value="(value) => handle_update(field.key, value)"
+                  />
+                  <Input
+                    v-else-if="field.type === 'number'"
+                    type="number"
+                    :model-value="draft_value(field.key) ?? 0"
+                    @update:model-value="(value) => handle_update(field.key, Number(value))"
+                  />
+                  <Textarea
+                    v-else-if="field.type === 'text'"
+                    :model-value="draft_value(field.key) ?? ''"
+                    @update:model-value="(value) => handle_update(field.key, value)"
+                  />
+                  <div v-else-if="field.type === 'list'" class="list-editor">
+                    <div
+                      v-for="(item, index) in draft_value(field.key) || []"
+                      :key="index"
+                      class="list-item"
+                    >
+                      <Input
+                        :model-value="item"
+                        @update:model-value="(value) => update_list_item(field.key, index, value)"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon-only
+                        @click="remove_list_item(field.key, index)"
+                      >
+                        <Icon icon="lucide:x" width="14" />
+                      </Button>
+                    </div>
+                    <Button variant="secondary" size="sm" @click="add_list_item(field.key)">
+                      <Icon icon="lucide:plus" width="13" />
+                      添加一项
+                    </Button>
+                  </div>
+                  <Input
+                    v-else
+                    :model-value="draft_value(field.key) ?? ''"
+                    @update:model-value="(value) => handle_update(field.key, value)"
+                  />
+                </div>
               </div>
-
-              <!-- 字符串 -->
-              <Input
-                v-else
-                :model-value="draft_value(field.key) ?? ''"
-                @update:model-value="(value) => handle_update(field.key, value)"
-              />
             </div>
-          </div>
+          </section>
         </div>
-      </section>
-    </div>
+      </template>
 
-    <!-- 保存前 diff 预览 -->
+      <!-- 环境变量 -->
+      <template #env>
+        <div class="tab-actions">
+          <Button variant="ghost" :disabled="!has_env_changes" @click="config_store.reset_env_draft()">
+            撤销修改
+          </Button>
+          <Button variant="primary" :disabled="!has_env_changes" @click="env_diff_open = true">
+            <Icon icon="lucide:save" width="15" />
+            保存修改
+            <span v-if="has_env_changes" class="change-count">{{ env_changes.length }}</span>
+          </Button>
+        </div>
+
+        <div v-if="env_loading" class="card">
+          <div class="loading-block"><Spinner :size="18" /> 加载环境变量…</div>
+        </div>
+
+        <div v-else class="config-layout">
+          <nav class="group-nav card">
+            <button
+              v-for="group in env_groups"
+              :key="group.name"
+              class="group-item"
+              :class="{ 'group-item--active': active_env_group === group.name }"
+              @click="active_env_group = group.name"
+            >
+              {{ group.name }}
+              <span
+                v-if="group.keys.some((key) => env_changes.some((c) => c.key === key))"
+                class="group-dot"
+              />
+            </button>
+          </nav>
+
+          <section class="card config-panel">
+            <div class="card-header">
+              <h3 class="card-title">{{ active_env_group }}</h3>
+              <span class="text-xs text-muted">修改后需重启机器人生效</span>
+            </div>
+            <div class="field-list">
+              <div
+                v-for="field in env_fields_of(env_groups.find((g) => g.name === active_env_group) || { keys: [] })"
+                :key="field.key"
+                class="field-row"
+                :class="{ 'field-row--changed': env_changes.some((c) => c.key === field.key) }"
+              >
+                <div class="field-meta">
+                  <label class="field-label">
+                    {{ field.label }}
+                    <span class="mono field-key">{{ field.key }}</span>
+                  </label>
+                  <p class="field-desc">{{ field.description }}</p>
+                </div>
+
+                <div class="field-control">
+                  <Input
+                    v-if="field.type === 'secret'"
+                    type="password"
+                    :model-value="env_draft_value(field.key) ?? ''"
+                    placeholder="留空则不修改"
+                    @update:model-value="(value) => handle_env_update(field.key, value)"
+                  />
+                  <Input
+                    v-else-if="field.type === 'number'"
+                    type="number"
+                    :model-value="env_draft_value(field.key) ?? 0"
+                    @update:model-value="(value) => handle_env_update(field.key, Number(value))"
+                  />
+                  <div v-else-if="field.type === 'list'" class="list-editor">
+                    <div
+                      v-for="(item, index) in env_draft_value(field.key) || []"
+                      :key="index"
+                      class="list-item"
+                    >
+                      <Input
+                        :model-value="item"
+                        @update:model-value="(value) => update_env_list_item(field.key, index, value)"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon-only
+                        @click="remove_env_list_item(field.key, index)"
+                      >
+                        <Icon icon="lucide:x" width="14" />
+                      </Button>
+                    </div>
+                    <Button variant="secondary" size="sm" @click="add_env_list_item(field.key)">
+                      <Icon icon="lucide:plus" width="13" />
+                      添加一项
+                    </Button>
+                  </div>
+                  <Input
+                    v-else
+                    :model-value="env_draft_value(field.key) ?? ''"
+                    @update:model-value="(value) => handle_env_update(field.key, value)"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </template>
+
+      <!-- 插件与适配器 -->
+      <template #nonebot>
+        <div v-if="nonebot_loading" class="card">
+          <div class="loading-block"><Spinner :size="18" /> 加载中…</div>
+        </div>
+
+        <div v-else class="nonebot-sections">
+          <!-- 适配器 -->
+          <section class="card">
+            <div class="card-header">
+              <h3 class="card-title">已注册适配器</h3>
+            </div>
+            <div class="card-body">
+              <ul class="nonebot-list">
+                <li v-for="adapter in nonebot_adapters" :key="adapter.module_name" class="nonebot-item">
+                  <div class="nonebot-item-info">
+                    <span class="nonebot-item-name">{{ adapter.name }}</span>
+                    <span class="mono text-xs text-muted">{{ adapter.module_name }}</span>
+                  </div>
+                  <Button variant="ghost" size="sm" icon-only @click="submit_remove_adapter(adapter)">
+                    <Icon icon="lucide:trash-2" width="14" />
+                  </Button>
+                </li>
+                <li v-if="nonebot_adapters.length === 0" class="nonebot-empty">暂无适配器</li>
+              </ul>
+              <form class="nonebot-add-form" @submit.prevent="submit_add_adapter">
+                <Input v-model="adapter_form.name" placeholder="名称（如 Minecraft）" />
+                <Input v-model="adapter_form.module_name" placeholder="模块路径（如 nonebot.adapters.minecraft）" />
+                <Button variant="secondary" type="submit">
+                  <Icon icon="lucide:plus" width="14" />
+                  添加
+                </Button>
+              </form>
+            </div>
+          </section>
+
+          <!-- 插件 -->
+          <section class="card">
+            <div class="card-header">
+              <h3 class="card-title">已注册插件</h3>
+            </div>
+            <div class="card-body">
+              <ul class="nonebot-list">
+                <li v-for="plugin in nonebot_plugins" :key="plugin" class="nonebot-item">
+                  <div class="nonebot-item-info">
+                    <span class="mono">{{ plugin }}</span>
+                  </div>
+                  <Button variant="ghost" size="sm" icon-only @click="submit_remove_plugin(plugin)">
+                    <Icon icon="lucide:trash-2" width="14" />
+                  </Button>
+                </li>
+                <li v-if="nonebot_plugins.length === 0" class="nonebot-empty">暂无通过 pyproject.toml 注册的插件</li>
+              </ul>
+              <form class="nonebot-add-form" @submit.prevent="submit_add_plugin">
+                <Input v-model="plugin_form.module_name" placeholder="插件模块路径（如 nonebot_plugin_xxx）" />
+                <Button variant="secondary" type="submit">
+                  <Icon icon="lucide:plus" width="14" />
+                  添加
+                </Button>
+              </form>
+            </div>
+          </section>
+
+          <!-- 插件目录 -->
+          <section class="card">
+            <div class="card-header">
+              <h3 class="card-title">插件目录</h3>
+            </div>
+            <div class="card-body">
+              <ul class="nonebot-list">
+                <li v-for="dir in nonebot_plugin_dirs" :key="dir" class="nonebot-item">
+                  <div class="nonebot-item-info">
+                    <Icon icon="lucide:folder" width="14" class="text-muted" />
+                    <span class="mono">{{ dir }}</span>
+                  </div>
+                </li>
+                <li v-if="nonebot_plugin_dirs.length === 0" class="nonebot-empty">暂无插件目录</li>
+              </ul>
+            </div>
+          </section>
+
+          <p class="text-xs text-muted">修改 pyproject.toml 后需重启机器人生效，新增插件/适配器需先通过 uv 安装依赖。</p>
+        </div>
+      </template>
+    </Tabs>
+
+    <!-- Config.toml 保存前 diff 预览 -->
     <Dialog
       v-model="diff_open"
       title="确认修改"
@@ -220,6 +523,27 @@ async function confirm_save() {
     >
       <ul class="diff-list">
         <li v-for="change in changes" :key="change.key" class="diff-item">
+          <div class="diff-label">{{ change.label }}</div>
+          <div class="diff-values mono">
+            <span class="diff-old">{{ display_value(change.old_value) }}</span>
+            <Icon icon="lucide:arrow-right" width="13" class="text-muted" />
+            <span class="diff-new">{{ display_value(change.new_value) }}</span>
+          </div>
+        </li>
+      </ul>
+    </Dialog>
+
+    <!-- .env 保存前 diff 预览 -->
+    <Dialog
+      v-model="env_diff_open"
+      title="确认修改环境变量"
+      :description="`共 ${env_changes.length} 项环境变量将被更新，保存后需重启机器人`"
+      confirm-text="确认保存"
+      :loading="env_saving"
+      @confirm="confirm_env_save"
+    >
+      <ul class="diff-list">
+        <li v-for="change in env_changes" :key="change.key" class="diff-item">
           <div class="diff-label">{{ change.label }}</div>
           <div class="diff-values mono">
             <span class="diff-old">{{ display_value(change.old_value) }}</span>
@@ -425,5 +749,64 @@ async function confirm_save() {
   .field-control {
     width: 100%;
   }
+}
+
+/* 标签页操作栏 */
+.tab-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+}
+
+/* NoneBot 插件/适配器管理 */
+.nonebot-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.nonebot-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.nonebot-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.nonebot-item:last-child {
+  border-bottom: none;
+}
+
+.nonebot-item-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.nonebot-item-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.nonebot-empty {
+  padding: var(--space-4) 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.nonebot-add-form {
+  display: flex;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-2);
 }
 </style>
