@@ -1,0 +1,183 @@
+<script setup>
+import { computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { Icon } from '@iconify/vue'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
+import { use_websocket } from '@/composables/use_websocket'
+import DropdownMenu from '@/components/ui/DropdownMenu.vue'
+import Tooltip from '@/components/ui/Tooltip.vue'
+import { role_label } from '@/utils/format'
+
+const router = useRouter()
+const route = useRoute()
+const auth_store = useAuthStore()
+const { user } = storeToRefs(auth_store)
+const { connection_state } = use_websocket()
+
+const breadcrumb = computed(() => route.meta.title || '仪表盘')
+
+const ws_dot_class = computed(() => {
+  if (connection_state.value === 'connected') return 'ws-dot--connected'
+  if (connection_state.value === 'connecting') return 'ws-dot--connecting'
+  return 'ws-dot--disconnected'
+})
+
+const ws_text = computed(() => {
+  if (connection_state.value === 'connected') return '实时连接正常'
+  if (connection_state.value === 'connecting') return '正在连接…'
+  return '实时连接断开'
+})
+
+const user_menu_items = computed(() => [
+  { label: '个人设置', icon: 'lucide:user', on_select: () => router.push('/settings') },
+  { separator: true },
+  {
+    label: '退出登录',
+    icon: 'lucide:log-out',
+    danger: true,
+    on_select: async () => {
+      await auth_store.logout()
+      router.push('/login')
+    },
+  },
+])
+
+const avatar_text = computed(() =>
+  (user.value?.nickname || user.value?.username || '?').slice(0, 1),
+)
+</script>
+
+<template>
+  <header class="topbar">
+    <div class="topbar-left">
+      <h2 class="topbar-title">{{ breadcrumb }}</h2>
+    </div>
+
+    <div class="topbar-right">
+      <Tooltip :text="ws_text">
+        <span class="ws-indicator">
+          <span class="ws-dot" :class="ws_dot_class" />
+        </span>
+      </Tooltip>
+
+      <DropdownMenu :items="user_menu_items">
+        <template #trigger>
+          <button class="user-trigger">
+            <span class="user-avatar">{{ avatar_text }}</span>
+            <span class="user-name">{{ user?.nickname || user?.username }}</span>
+            <Icon icon="lucide:chevron-down" width="14" class="text-muted" />
+          </button>
+        </template>
+        <template #label>
+          <div class="menu-user-info">
+            <div class="menu-user-name">{{ user?.nickname || user?.username }}</div>
+            <div class="menu-user-role">{{ role_label(user?.role) }}</div>
+          </div>
+        </template>
+      </DropdownMenu>
+    </div>
+  </header>
+</template>
+
+<style scoped>
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--topbar-height);
+  padding: 0 var(--space-6);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.topbar-title {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.ws-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  cursor: default;
+}
+
+.ws-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.ws-dot--connected {
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-soft);
+}
+
+.ws-dot--connecting {
+  background: var(--warning);
+}
+
+.ws-dot--disconnected {
+  background: var(--danger);
+}
+
+.user-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  transition: background-color var(--transition);
+}
+
+.user-trigger:hover {
+  background: rgb(0 0 0 / 0.04);
+}
+
+.user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.user-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.menu-user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-user-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.menu-user-role {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+</style>

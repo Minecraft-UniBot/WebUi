@@ -1,0 +1,399 @@
+<script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { Icon } from '@iconify/vue'
+import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
+import { useStatusStore } from '@/stores/status'
+import { useServerStore } from '@/stores/server'
+import { use_websocket } from '@/composables/use_websocket'
+import Badge from '@/components/ui/Badge.vue'
+import Progress from '@/components/ui/Progress.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import { format_uptime, level_class } from '@/utils/format'
+
+const router = useRouter()
+const status_store = useStatusStore()
+const server_store = useServerStore()
+const { status } = storeToRefs(status_store)
+const { server_list } = storeToRefs(server_store)
+const { connection_state, on_event } = use_websocket()
+
+const live_logs = ref([])
+const MAX_LIVE_LOGS = 80
+
+let unsubscribe_log = null
+
+const memory_percent = computed(() => {
+  const memory_mb = status.value?.memory_mb || 0
+  return Math.min(100, (memory_mb / 1024) * 100)
+})
+
+const online_count = computed(() => server_list.value.filter((server) => server.online).length)
+
+const stat_items = computed(() => [
+  { label: '版本', value: status.value?.version || '—', icon: 'lucide:tag' },
+  { label: '运行时长', value: format_uptime(status.value?.uptime), icon: 'lucide:timer' },
+  { label: '已绑定玩家', value: status.value?.players_bound ?? '—', icon: 'lucide:users' },
+  { label: 'WS 客户端', value: status.value?.ws_clients ?? '—', icon: 'lucide:radio' },
+])
+
+onMounted(async () => {
+  server_store.fetch_server_list().catch(() => {})
+  unsubscribe_log = on_event('log', (data) => {
+    live_logs.value.unshift(data)
+    if (live_logs.value.length > MAX_LIVE_LOGS) {
+      live_logs.value.pop()
+    }
+  })
+})
+
+onUnmounted(() => {
+  unsubscribe_log?.()
+})
+</script>
+
+<template>
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">仪表盘</h1>
+        <p class="page-desc">机器人运行状态总览</p>
+      </div>
+      <Badge :variant="connection_state === 'connected' ? 'success' : 'danger'">
+        <span class="pulse-dot" :class="{ 'pulse-dot--on': connection_state === 'connected' }" />
+        {{ connection_state === 'connected' ? '实时推送已连接' : '实时推送未连接' }}
+      </Badge>
+    </div>
+
+    <!-- 状态条 -->
+    <section class="stats-strip card">
+      <div v-for="item in stat_items" :key="item.label" class="stat-cell">
+        <Icon :icon="item.icon" width="16" class="stat-icon" />
+        <div class="stat-body">
+          <span class="stat-value">{{ item.value }}</span>
+          <span class="stat-label">{{ item.label }}</span>
+        </div>
+      </div>
+      <div class="stat-cell">
+        <Icon icon="lucide:memory-stick" width="16" class="stat-icon" />
+        <div class="stat-body stat-body--wide">
+          <span class="stat-value">{{ status?.memory_mb ?? '—' }} MB</span>
+          <Progress :value="memory_percent" />
+          <span class="stat-label">内存占用</span>
+        </div>
+      </div>
+      <div class="stat-cell">
+        <Icon icon="lucide:gauge" width="16" class="stat-icon" />
+        <div class="stat-body stat-body--wide">
+          <span class="stat-value">{{ status?.cpu_percent ?? '—' }}%</span>
+          <Progress :value="status?.cpu_percent || 0" />
+          <span class="stat-label">CPU 占用</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="dashboard-grid">
+      <!-- 服务器一览 -->
+      <section class="card">
+        <div class="card-header">
+          <h3 class="card-title">服务器一览</h3>
+          <Badge variant="accent">{{ online_count }} / {{ server_list.length }} 在线</Badge>
+        </div>
+        <div class="card-body server-panel">
+          <EmptyState
+            v-if="server_list.length === 0"
+            icon="lucide:server-off"
+            title="暂无服务器"
+            description="尚未有 Minecraft 服务器连接到机器人"
+          />
+          <ul v-else class="server-rows">
+            <li
+              v-for="server in server_list"
+              :key="server.name"
+              class="server-row"
+              @click="router.push(`/servers/${server.name}`)"
+            >
+              <span
+                class="server-dot"
+                :class="server.online ? 'server-dot--on' : 'server-dot--off'"
+              />
+              <div class="server-info">
+                <span class="server-name">{{ server.name }}</span>
+                <span class="server-motd">{{ server.motd || '—' }}</span>
+              </div>
+              <div class="server-meta">
+                <Badge :variant="server.online ? 'success' : 'neutral'">
+                  {{ server.online ? '在线' : '离线' }}
+                </Badge>
+                <span class="server-players">
+                  <Icon icon="lucide:users" width="13" />
+                  {{ server.players }} / {{ server.max_players }}
+                </span>
+              </div>
+              <Icon icon="lucide:chevron-right" width="15" class="text-muted" />
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 实时日志 -->
+      <section class="card">
+        <div class="card-header">
+          <h3 class="card-title">实时日志</h3>
+          <RouterLink to="/logs" class="more-link">
+            查看全部 <Icon icon="lucide:arrow-right" width="13" />
+          </RouterLink>
+        </div>
+        <div class="log-stream">
+          <div v-if="live_logs.length === 0" class="log-placeholder">等待日志推送…</div>
+          <div v-for="(log, index) in live_logs" :key="`${log.time}-${index}`" class="log-row">
+            <span class="log-time mono">{{ log.time }}</span>
+            <span class="log-level mono" :class="level_class(log.level)">
+              {{ log.level || '—' }}
+            </span>
+            <span class="log-message">{{ log.message }}</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 适配器 -->
+    <section class="card adapter-card">
+      <div class="card-header">
+        <h3 class="card-title">已加载适配器</h3>
+      </div>
+      <div class="card-body adapter-list">
+        <Badge v-for="adapter in status?.adapters || []" :key="adapter" variant="neutral">
+          <Icon icon="lucide:plug" width="12" />
+          {{ adapter }}
+        </Badge>
+        <span v-if="!status?.adapters?.length" class="text-muted text-sm">暂无适配器</span>
+      </div>
+    </section>
+  </div>
+</template>
+
+<style scoped>
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pulse-dot--on {
+  animation: pulse 1.6s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(22 163 74 / 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 5px rgb(22 163 74 / 0);
+  }
+}
+
+/* 状态条 */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  margin-bottom: var(--space-5);
+}
+
+.stat-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.stat-cell + .stat-cell {
+  border-left: 1px solid var(--border);
+}
+
+.stat-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stat-body--wide {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* 双栏 */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+/* 服务器行 */
+.server-panel {
+  padding: 0;
+}
+
+.server-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.server-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background-color var(--transition);
+}
+
+.server-row:last-child {
+  border-bottom: none;
+}
+
+.server-row:hover {
+  background: var(--surface-sunken);
+}
+
+.server-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.server-dot--on {
+  background: var(--success);
+}
+
+.server-dot--off {
+  background: var(--border-strong);
+}
+
+.server-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.server-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.server-motd {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.server-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.server-players {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* 日志流 */
+.log-stream {
+  height: 320px;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-sunken);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.log-placeholder {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.log-row {
+  display: flex;
+  gap: var(--space-3);
+  padding: 3px 0;
+  line-height: 1.6;
+}
+
+.log-time {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.log-level {
+  width: 56px;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.log-message {
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.more-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--accent);
+}
+
+/* 适配器 */
+.adapter-list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1100px) {
+  .stats-strip {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .stat-cell:nth-child(4) {
+    border-left: none;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

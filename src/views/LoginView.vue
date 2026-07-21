@@ -1,0 +1,263 @@
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Icon } from '@iconify/vue'
+import { useAuthStore } from '@/stores/auth'
+import { use_toast } from '@/composables/use_toast'
+import Button from '@/components/ui/Button.vue'
+import Input from '@/components/ui/Input.vue'
+
+const router = useRouter()
+const auth_store = useAuthStore()
+const toast = use_toast()
+
+// null 探测中 | 'login' | 'setup'
+const mode = ref(null)
+const submitting = ref(false)
+
+const login_form = ref({ username: '', password: '' })
+const setup_form = ref({ username: '', password: '', confirm_password: '', nickname: '管理员' })
+
+onMounted(async () => {
+  // 已有有效 token 则直接进入
+  if (auth_store.is_logged_in) {
+    try {
+      await auth_store.fetch_me()
+      router.replace('/')
+      return
+    } catch {
+      // token 失效，继续走登录流程
+    }
+  }
+  mode.value = 'login'
+})
+
+async function handle_login() {
+  if (!login_form.value.username || !login_form.value.password) {
+    toast.error('请输入用户名和密码')
+    return
+  }
+  submitting.value = true
+  try {
+    await auth_store.login(login_form.value.username, login_form.value.password)
+    toast.success('登录成功')
+    router.push('/')
+  } catch (error) {
+    // 后端在无用户时仅开放初始化接口，此时引导进入初始化向导
+    if (error.message === '系统已初始化') {
+      toast.error('系统已初始化，请直接登录')
+      mode.value = 'login'
+    } else {
+      toast.error(error.message || '登录失败')
+    }
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function handle_setup() {
+  const { username, password, confirm_password, nickname } = setup_form.value
+  if (!username || !password) {
+    toast.error('请填写用户名和密码')
+    return
+  }
+  if (password.length < 6) {
+    toast.error('密码至少 6 位')
+    return
+  }
+  if (password !== confirm_password) {
+    toast.error('两次输入的密码不一致')
+    return
+  }
+  submitting.value = true
+  try {
+    await auth_store.setup(username, password, nickname || '管理员')
+    toast.success('初始化成功，请登录')
+    mode.value = 'login'
+  } catch (error) {
+    if (error.message === '系统已初始化') {
+      toast.error('系统已初始化，请直接登录')
+      mode.value = 'login'
+    } else {
+      toast.error(error.message || '初始化失败')
+    }
+  } finally {
+    submitting.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="login-page">
+    <div class="login-panel">
+      <div class="login-brand">
+        <div class="login-logo">
+          <Icon icon="lucide:bot" width="26" />
+        </div>
+        <h1 class="login-title">UniBot</h1>
+        <p class="login-subtitle">Minecraft 群管机器人 · 控制面板</p>
+      </div>
+
+      <!-- 探测中 -->
+      <div v-if="mode === null" class="loading-block">
+        <span class="ui-spinner" style="width: 16px; height: 16px" />
+        正在连接服务…
+      </div>
+
+      <!-- 登录 -->
+      <form v-else-if="mode === 'login'" class="login-form" @submit.prevent="handle_login">
+        <div class="form-row">
+          <label class="form-label" for="login-username">用户名</label>
+          <Input
+            id="login-username"
+            v-model="login_form.username"
+            placeholder="请输入用户名"
+            autocomplete="username"
+          />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="login-password">密码</label>
+          <Input
+            id="login-password"
+            v-model="login_form.password"
+            type="password"
+            placeholder="请输入密码"
+            autocomplete="current-password"
+          />
+        </div>
+        <Button variant="primary" type="submit" :loading="submitting" class="login-submit">
+          登 录
+        </Button>
+        <button type="button" class="switch-mode" @click="mode = 'setup'">
+          首次启动？创建管理员账户
+        </button>
+      </form>
+
+      <!-- 首次初始化 -->
+      <form v-else class="login-form" @submit.prevent="handle_setup">
+        <div class="setup-notice">
+          <Icon icon="lucide:sparkles" width="15" />
+          检测到首次启动，请创建管理员账户
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="setup-username">用户名</label>
+          <Input id="setup-username" v-model="setup_form.username" placeholder="如 admin" />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="setup-nickname">昵称</label>
+          <Input id="setup-nickname" v-model="setup_form.nickname" placeholder="管理员" />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="setup-password">密码</label>
+          <Input
+            id="setup-password"
+            v-model="setup_form.password"
+            type="password"
+            placeholder="至少 6 位"
+          />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="setup-confirm">确认密码</label>
+          <Input
+            id="setup-confirm"
+            v-model="setup_form.confirm_password"
+            type="password"
+            placeholder="再次输入密码"
+          />
+        </div>
+        <Button variant="primary" type="submit" :loading="submitting" class="login-submit">
+          创建管理员
+        </Button>
+        <button type="button" class="switch-mode" @click="mode = 'login'">
+          已有账户？返回登录
+        </button>
+      </form>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-4);
+  background:
+    radial-gradient(circle at 20% 20%, var(--accent-soft) 0%, transparent 45%),
+    radial-gradient(circle at 85% 80%, var(--success-soft) 0%, transparent 40%), var(--bg);
+}
+
+.login-panel {
+  width: min(400px, 100%);
+  padding: var(--space-8) var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: var(--space-6);
+}
+
+.login-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: #ffffff;
+  margin-bottom: var(--space-3);
+}
+
+.login-title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.login-subtitle {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.login-submit {
+  margin-top: var(--space-2);
+  height: 38px;
+}
+
+.setup-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+
+.switch-mode {
+  align-self: center;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  transition: color var(--transition);
+}
+
+.switch-mode:hover {
+  color: var(--accent);
+}
+</style>
