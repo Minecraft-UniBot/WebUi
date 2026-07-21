@@ -78,7 +78,8 @@ defineProps({
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   padding: var(--space-1);
-  z-index: 100;
+  /* 需高于 Dialog 遮罩层（z-index: 200），否则 Dialog 内的下拉选项会被拦截 */
+  z-index: 300;
 }
 
 .ui-select-item {

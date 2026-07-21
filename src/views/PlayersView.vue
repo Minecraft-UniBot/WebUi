@@ -151,6 +151,7 @@ async function submit_unbind() {
                     :src="`https://mc-heads.net/avatar/${encodeURIComponent(player)}/20`"
                     alt=""
                     loading="lazy"
+                    referrerpolicy="no-referrer"
                   />
                   {{ player }}
                   <button

@@ -189,6 +189,7 @@ function handle_command_keydown(event) {
                   :src="`https://mc-heads.net/avatar/${encodeURIComponent(player)}/24`"
                   alt=""
                   loading="lazy"
+                  referrerpolicy="no-referrer"
                 />
                 <span class="player-name mono">{{ player }}</span>
               </li>
