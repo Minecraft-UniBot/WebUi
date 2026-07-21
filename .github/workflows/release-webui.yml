@@ -11,10 +11,6 @@ jobs:
   build-webui:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: WebUi
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,6 +34,6 @@ jobs:
       - name: Upload WebUi.zip to release
         uses: softprops/action-gh-release@v2
         with:
-          files: WebUi/WebUi.zip
+          files: WebUi.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
