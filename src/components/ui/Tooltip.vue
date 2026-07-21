@@ -26,3 +26,22 @@ defineProps({
     </TooltipRoot>
   </TooltipProvider>
 </template>
+
+<style scoped>
+.ui-tooltip-content {
+  padding: var(--space-1) var(--space-2);
+  background: var(--text);
+  color: #ffffff;
+  border-radius: var(--radius);
+  font-size: var(--text-xs);
+  box-shadow: var(--shadow-md);
+  z-index: 300;
+  animation: tooltip-in 120ms ease-out;
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+  }
+}
+</style>

@@ -45,3 +45,68 @@ defineProps({
     </SelectPortal>
   </SelectRoot>
 </template>
+
+<style scoped>
+.ui-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: 34px;
+  min-width: 120px;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  color: var(--text);
+  transition: border-color var(--transition);
+}
+
+.ui-select-trigger:hover {
+  border-color: var(--border-strong);
+}
+
+.ui-select-trigger[data-state='open'] {
+  border-color: var(--accent);
+}
+
+.ui-select-content {
+  min-width: var(--reka-select-trigger-width, 120px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1);
+  z-index: 100;
+}
+
+.ui-select-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--transition);
+}
+
+.ui-select-item[data-highlighted] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  outline: none;
+}
+
+.ui-select-item[data-state='checked'] {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.ui-select-item[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+</style>

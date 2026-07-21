@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { use_toast } from '@/composables/use_toast'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
+import Spinner from '@/components/ui/Spinner.vue'
 
 const router = useRouter()
 const auth_store = useAuthStore()
@@ -100,7 +101,7 @@ async function handle_setup() {
 
       <!-- 探测中 -->
       <div v-if="mode === null" class="loading-block">
-        <span class="ui-spinner" style="width: 16px; height: 16px" />
+        <Spinner :size="16" />
         正在连接服务…
       </div>
 

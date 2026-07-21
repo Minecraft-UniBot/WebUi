@@ -678,7 +678,7 @@ async function submit_remove_plugin(module_name) {
   justify-content: flex-end;
 }
 
-.field-control > :not(.list-editor) {
+.field-control > :not(.list-editor):not(.ui-switch) {
   width: 100%;
 }
 

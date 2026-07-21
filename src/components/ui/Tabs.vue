@@ -23,3 +23,47 @@ defineProps({
     </TabsContent>
   </TabsRoot>
 </template>
+
+<style scoped>
+.ui-tabs-list {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: rgb(0 0 0 / 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.ui-tabs-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 30px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+  transition:
+    background-color var(--transition),
+    color var(--transition);
+}
+
+.ui-tabs-trigger:hover {
+  color: var(--text);
+}
+
+.ui-tabs-trigger[data-state='active'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.ui-tabs-content {
+  outline: none;
+}
+
+.ui-tabs-content[data-state='inactive'] {
+  display: none;
+}
+</style>

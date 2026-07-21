@@ -38,3 +38,17 @@ function go_to(target_page) {
     </Button>
   </div>
 </template>
+
+<style scoped>
+.ui-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ui-pagination-info {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-right: var(--space-2);
+}
+</style>

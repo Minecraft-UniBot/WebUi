@@ -15,3 +15,20 @@ defineProps({
     />
   </ProgressRoot>
 </template>
+
+<style scoped>
+.ui-progress {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.06);
+  overflow: hidden;
+}
+
+.ui-progress-indicator {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 300ms ease-out;
+}
+</style>

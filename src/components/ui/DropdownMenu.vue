@@ -49,3 +49,63 @@ defineProps({
     </DropdownMenuPortal>
   </DropdownMenuRoot>
 </template>
+
+<style scoped>
+.ui-dropdown-content {
+  min-width: 168px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1);
+  z-index: 150;
+  animation: dropdown-in 150ms ease-out;
+}
+
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.ui-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--transition);
+}
+
+.ui-dropdown-item[data-highlighted] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  outline: none;
+}
+
+.ui-dropdown-item--danger {
+  color: var(--danger);
+}
+
+.ui-dropdown-item--danger[data-highlighted] {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.ui-dropdown-separator {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border);
+}
+
+.ui-dropdown-label {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+</style>

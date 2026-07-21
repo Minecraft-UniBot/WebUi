@@ -17,3 +17,38 @@ defineProps({
     :disabled="disabled"
   />
 </template>
+
+<style scoped>
+.ui-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+.ui-input::placeholder {
+  color: var(--text-muted);
+}
+
+.ui-input:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.ui-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.ui-input:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+</style>
