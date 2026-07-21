@@ -6,6 +6,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/webui/',
   plugins: [
     vue(),
     vueDevTools(),
@@ -17,8 +18,8 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:8000',
-      // 注意：不代理 /ws，WebSocket 由前端直连后端（避免 Bun 下 http-proxy 兼容问题）
+      '/webui/api': 'http://localhost:8000',
+      // 注意：不代理 /webui/ws，WebSocket 由前端直连后端（避免 Bun 下 http-proxy 兼容问题）
     },
   },
 })

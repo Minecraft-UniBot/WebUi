@@ -23,7 +23,7 @@ function build_url() {
   const is_dev = import.meta.env.DEV
   const host = is_dev ? `${window.location.hostname}:8000` : window.location.host
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${protocol}://${host}/ws?token=${encodeURIComponent(token)}`
+  return `${protocol}://${host}/webui/ws?token=${encodeURIComponent(token)}`
 }
 
 function send(message) {

@@ -5,6 +5,8 @@
  * - 统一解析 { code, data, message } 响应格式
  */
 
+const API_BASE = '/webui'
+
 const ACCESS_TOKEN_KEY = 'unibot_access_token'
 const REFRESH_TOKEN_KEY = 'unibot_refresh_token'
 
@@ -40,7 +42,7 @@ let refresh_promise = null
 async function refresh_access_token() {
   const refresh_token = get_refresh_token()
   if (!refresh_token) throw new ApiError(401, '登录已过期')
-  const response = await fetch('/api/auth/refresh', {
+  const response = await fetch(`${API_BASE}/api/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token }),
@@ -52,7 +54,7 @@ async function refresh_access_token() {
 }
 
 async function request(method, path, { body, query, auth = true } = {}) {
-  const url = new URL(path, window.location.origin)
+  const url = new URL(`${API_BASE}${path}`, window.location.origin)
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null && value !== '') {
