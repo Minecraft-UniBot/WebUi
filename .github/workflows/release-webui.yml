@@ -1,0 +1,43 @@
+name: Build WebUi Release Asset
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-webui:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: WebUi
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build WebUi
+        run: bun run build
+
+      - name: Package dist into WebUi.zip
+        run: |
+          cd dist
+          zip -r ../WebUi.zip .
+
+      - name: Upload WebUi.zip to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: WebUi/WebUi.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
