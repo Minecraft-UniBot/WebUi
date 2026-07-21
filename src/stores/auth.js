@@ -18,6 +18,12 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value
   }
 
+  /** 探测系统是否已初始化（是否存在任意账户） */
+  async function fetch_auth_status() {
+    const data = await http.get('/api/auth/status', { auth: false })
+    return data.initialized
+  }
+
   async function login(username, password) {
     const data = await http.post('/api/auth/login', { username, password }, { auth: false })
     save_tokens(data.access_token, data.refresh_token)
@@ -55,6 +61,7 @@ export const useAuthStore = defineStore('auth', () => {
     is_admin,
     is_operator,
     fetch_me,
+    fetch_auth_status,
     login,
     setup,
     logout,

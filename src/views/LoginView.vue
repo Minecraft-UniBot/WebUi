@@ -30,7 +30,14 @@ onMounted(async () => {
       // token 失效，继续走登录流程
     }
   }
-  mode.value = 'login'
+  // 探测后端是否已存在账户：已初始化只允许登录，否则自动进入初始化向导
+  try {
+    const initialized = await auth_store.fetch_auth_status()
+    mode.value = initialized ? 'login' : 'setup'
+  } catch {
+    // 探测失败时保守处理，仅展示登录表单
+    mode.value = 'login'
+  }
 })
 
 async function handle_login() {
@@ -44,13 +51,7 @@ async function handle_login() {
     toast.success('登录成功')
     router.push('/')
   } catch (error) {
-    // 后端在无用户时仅开放初始化接口，此时引导进入初始化向导
-    if (error.message === '系统已初始化') {
-      toast.error('系统已初始化，请直接登录')
-      mode.value = 'login'
-    } else {
-      toast.error(error.message || '登录失败')
-    }
+    toast.error(error.message || '登录失败')
   } finally {
     submitting.value = false
   }
@@ -76,12 +77,9 @@ async function handle_setup() {
     toast.success('初始化成功，请登录')
     mode.value = 'login'
   } catch (error) {
-    if (error.message === '系统已初始化') {
-      toast.error('系统已初始化，请直接登录')
-      mode.value = 'login'
-    } else {
-      toast.error(error.message || '初始化失败')
-    }
+    // 后端检测到已有账户（如并发创建），回到登录表单
+    toast.error(error.message || '初始化失败')
+    mode.value = 'login'
   } finally {
     submitting.value = false
   }
@@ -129,16 +127,13 @@ async function handle_setup() {
         <Button variant="primary" type="submit" :loading="submitting" class="login-submit">
           登 录
         </Button>
-        <button type="button" class="switch-mode" @click="mode = 'setup'">
-          首次启动？创建管理员账户
-        </button>
       </form>
 
       <!-- 首次初始化 -->
       <form v-else class="login-form" @submit.prevent="handle_setup">
         <div class="setup-notice">
           <Icon icon="lucide:sparkles" width="15" />
-          检测到首次启动，请创建管理员账户
+          尚未创建任何账户，请先初始化管理员
         </div>
         <div class="form-row">
           <label class="form-label" for="setup-username">用户名</label>
@@ -169,9 +164,6 @@ async function handle_setup() {
         <Button variant="primary" type="submit" :loading="submitting" class="login-submit">
           创建管理员
         </Button>
-        <button type="button" class="switch-mode" @click="mode = 'login'">
-          已有账户？返回登录
-        </button>
       </form>
     </div>
   </div>
@@ -249,16 +241,5 @@ async function handle_setup() {
   color: var(--accent);
   border-radius: var(--radius);
   font-size: var(--text-sm);
-}
-
-.switch-mode {
-  align-self: center;
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  transition: color var(--transition);
-}
-
-.switch-mode:hover {
-  color: var(--accent);
 }
 </style>
