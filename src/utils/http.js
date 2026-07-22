@@ -1,31 +1,18 @@
 /**
  * HTTP 请求封装
- * - 统一携带 JWT（Authorization: Bearer）
+ * - JWT 通过 HttpOnly cookie 自动携带（无需手动管理 token）
  * - access_token 过期（401）时自动用 refresh_token 刷新并重试
  * - 统一解析 { code, data, message } 响应格式
  */
 
 const API_BASE = '/webui'
 
-const ACCESS_TOKEN_KEY = 'unibot_access_token'
-const REFRESH_TOKEN_KEY = 'unibot_refresh_token'
+/** 标记 cookie key（非 HttpOnly，仅用于前端快速判断登录态） */
+const AUTH_FLAG_KEY = 'unibot_authenticated'
 
-export function get_access_token() {
-  return localStorage.getItem(ACCESS_TOKEN_KEY) || ''
-}
-
-export function get_refresh_token() {
-  return localStorage.getItem(REFRESH_TOKEN_KEY) || ''
-}
-
-export function save_tokens(access_token, refresh_token) {
-  if (access_token) localStorage.setItem(ACCESS_TOKEN_KEY, access_token)
-  if (refresh_token) localStorage.setItem(REFRESH_TOKEN_KEY, refresh_token)
-}
-
-export function clear_tokens() {
-  localStorage.removeItem(ACCESS_TOKEN_KEY)
-  localStorage.removeItem(REFRESH_TOKEN_KEY)
+/** 检查是否存在登录标记 cookie */
+export function is_authenticated() {
+  return document.cookie.split('; ').some(row => row.startsWith(AUTH_FLAG_KEY + '='))
 }
 
 /** 业务错误：code !== 0 时抛出，携带 code 与 message */
@@ -40,17 +27,15 @@ export class ApiError extends Error {
 let refresh_promise = null
 
 async function refresh_access_token() {
-  const refresh_token = get_refresh_token()
-  if (!refresh_token) throw new ApiError(401, '登录已过期')
+  // refresh_token 在 HttpOnly cookie 中，由后端自动读取
   const response = await fetch(`${API_BASE}/api/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token }),
+    credentials: 'include',
+    body: '{}',
   })
   const result = await response.json()
   if (result.code !== 0) throw new ApiError(result.code, result.message || '刷新失败')
-  save_tokens(result.data.access_token)
-  return result.data.access_token
 }
 
 async function request(method, path, { body, query, auth = true } = {}) {
@@ -65,13 +50,11 @@ async function request(method, path, { body, query, auth = true } = {}) {
 
   const do_fetch = async () => {
     const headers = { 'Content-Type': 'application/json' }
-    if (auth) {
-      const token = get_access_token()
-      if (token) headers.Authorization = `Bearer ${token}`
-    }
+    // JWT 通过 HttpOnly cookie 自动携带，无需手动添加 Authorization header
     return fetch(url, {
       method,
       headers,
+      credentials: 'include',
       body: body !== undefined ? JSON.stringify(body) : undefined,
     })
   }
@@ -87,14 +70,12 @@ async function request(method, path, { body, query, auth = true } = {}) {
       response = await do_fetch()
     } catch (error) {
       refresh_promise = null
-      clear_tokens()
       window.dispatchEvent(new CustomEvent('unibot:unauthorized'))
       throw error
     }
   }
 
   if (response.status === 401) {
-    clear_tokens()
     window.dispatchEvent(new CustomEvent('unibot:unauthorized'))
     throw new ApiError(401, '登录已过期')
   }

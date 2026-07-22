@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { get_access_token } from '@/utils/http'
+import { is_authenticated } from '@/utils/http'
 import { useAuthStore } from '@/stores/auth'
 import AppLayout from '@/components/layout/AppLayout.vue'
 
@@ -77,20 +77,20 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  const is_logged_in = Boolean(get_access_token())
+  const logged_in = is_authenticated()
 
   // 未登录：仅允许访问登录页
-  if (!is_logged_in && !to.meta.public) {
+  if (!logged_in && !to.meta.public) {
     return { name: 'LoginView' }
   }
 
   // 已登录访问登录页：重定向到首页
-  if (is_logged_in && to.meta.public) {
+  if (logged_in && to.meta.public) {
     return { path: '/' }
   }
 
   // 管理员专属页面校验
-  if (to.meta.admin_only && is_logged_in) {
+  if (to.meta.admin_only && logged_in) {
     const auth_store = useAuthStore()
     if (!auth_store.user) {
       try {

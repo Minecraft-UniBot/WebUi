@@ -3,12 +3,12 @@
  */
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { http, save_tokens, clear_tokens, get_access_token, get_refresh_token } from '@/utils/http'
+import { http, is_authenticated } from '@/utils/http'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
 
-  const is_logged_in = computed(() => Boolean(get_access_token()))
+  const is_logged_in = computed(() => is_authenticated())
   const is_admin = computed(() => user.value?.role === 'admin')
   const is_operator = computed(() => ['admin', 'operator'].includes(user.value?.role))
 
@@ -26,7 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(username, password) {
     const data = await http.post('/api/auth/login', { username, password }, { auth: false })
-    save_tokens(data.access_token, data.refresh_token)
+    // login 成功后后端自动设置 HttpOnly cookie，前端只需保存用户信息
     user.value = data.user
     return data
   }
@@ -38,11 +38,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     try {
-      await http.post('/api/auth/logout', { refresh_token: get_refresh_token() })
+      await http.post('/api/auth/logout', { auth: false })
     } catch {
       // 登出失败也要清理本地状态
     }
-    clear_tokens()
     user.value = null
   }
 

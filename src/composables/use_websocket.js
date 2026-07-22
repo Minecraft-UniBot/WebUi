@@ -1,11 +1,11 @@
 /**
  * WebSocket 实时事件连接（单例）
- * - 通过 query 参数携带 access_token 认证
+ * - 通过 HttpOnly cookie 自动携带 access_token 认证
  * - 30 秒心跳，断线自动重连
  * - 支持按事件类型订阅/取消订阅，事件通过回调分发
  */
 import { ref } from 'vue'
-import { get_access_token } from '@/utils/http'
+import { is_authenticated } from '@/utils/http'
 
 const connection_state = ref('disconnected') // disconnected | connecting | connected
 const event_listeners = new Map() // event_type -> Set<callback>
@@ -18,12 +18,12 @@ let reconnect_delay = 1000
 let manual_close = false
 
 function build_url() {
-  const token = get_access_token()
   // 开发模式下直连后端（Vite 不代理 WebSocket），生产模式走同源
+  // access_token 通过 HttpOnly cookie 自动随 WebSocket 握手发送
   const is_dev = import.meta.env.DEV
   const host = is_dev ? `${window.location.hostname}:8000` : window.location.host
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${protocol}://${host}/webui/ws?token=${encodeURIComponent(token)}`
+  return `${protocol}://${host}/webui/ws`
 }
 
 function send(message) {
@@ -54,7 +54,7 @@ function schedule_reconnect() {
 }
 
 function connect() {
-  if (!get_access_token()) return
+  if (!is_authenticated()) return
   if (
     socket &&
     (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)
