@@ -28,6 +28,10 @@ export const useServerStore = defineStore('server', () => {
     return await http.post(`/api/servers/${encodeURIComponent(name)}/execute`, { command })
   }
 
+  async function fetch_server_players(name) {
+    return await http.get(`/api/servers/${encodeURIComponent(name)}/players`)
+  }
+
   async function broadcast_message(message) {
     return await http.post('/api/servers/broadcast', { message })
   }
@@ -37,6 +41,7 @@ export const useServerStore = defineStore('server', () => {
     loading,
     fetch_server_list,
     fetch_server_detail,
+    fetch_server_players,
     execute_command,
     broadcast_message,
   }

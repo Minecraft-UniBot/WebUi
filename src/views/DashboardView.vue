@@ -9,7 +9,8 @@ import { use_websocket } from '@/composables/use_websocket'
 import Badge from '@/components/ui/Badge.vue'
 import Progress from '@/components/ui/Progress.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import { format_uptime, level_class } from '@/utils/format'
+import { format_uptime, level_class, format_mb } from '@/utils/format'
+import { server_type_icon, server_type_label } from '@/utils/server'
 
 const router = useRouter()
 const status_store = useStatusStore()
@@ -77,7 +78,7 @@ onUnmounted(() => {
       <div class="stat-cell">
         <Icon icon="lucide:memory-stick" width="16" class="stat-icon" />
         <div class="stat-body stat-body--wide">
-          <span class="stat-value">{{ status?.memory_mb ?? '—' }} MB</span>
+          <span class="stat-value">{{ format_mb(status?.memory_mb) }}</span>
           <Progress :value="memory_percent" />
           <span class="stat-label">内存占用</span>
         </div>
@@ -113,6 +114,12 @@ onUnmounted(() => {
               class="server-row"
               @click="router.push(`/servers/${server.name}`)"
             >
+              <Icon
+                class="server-type-icon"
+                :icon="server_type_icon(server.server_type)"
+                width="15"
+                :title="server_type_label(server.server_type)"
+              />
               <span
                 class="server-dot"
                 :class="server.online ? 'server-dot--on' : 'server-dot--off'"
@@ -283,6 +290,11 @@ onUnmounted(() => {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+.server-type-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
 }
 
 .server-dot--on {

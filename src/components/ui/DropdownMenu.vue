@@ -59,13 +59,14 @@ defineProps({
 }
 
 .ui-dropdown-content {
+  position: relative;
   min-width: 168px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   padding: var(--space-1);
-  z-index: 150;
+  z-index: var(--z-dropdown);
   animation: dropdown-in var(--transition);
 }
 </style>

@@ -64,6 +64,12 @@
   --topbar-height: 56px;
   --statusbar-height: 32px;
 
+  /* 层级 */
+  --z-overlay: 200;
+  --z-dialog: 201;
+  --z-dropdown: 300;
+  --z-tooltip: 400;
+
   /* 动效 */
   --transition: 150ms ease-out;
 }

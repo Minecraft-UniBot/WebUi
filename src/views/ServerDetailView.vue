@@ -12,6 +12,8 @@ import Button from '@/components/ui/Button.vue'
 import Progress from '@/components/ui/Progress.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import Spinner from '@/components/ui/Spinner.vue'
+import { server_type_icon, server_type_label } from '@/utils/server'
+import { format_mb } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -135,6 +137,12 @@ function handle_command_keydown(event) {
           返回服务器列表
         </button>
         <h1 class="page-title server-title">
+          <Icon
+            class="server-type-icon"
+            :icon="server_type_icon(detail?.server_type)"
+            width="18"
+            :title="server_type_label(detail?.server_type)"
+          />
           <span class="server-dot" :class="detail?.online ? 'server-dot--on' : 'server-dot--off'" />
           {{ server_name }}
         </h1>
@@ -158,12 +166,27 @@ function handle_command_keydown(event) {
       <!-- 信息条 -->
       <section class="info-strip card">
         <div class="info-cell">
+          <span class="info-label">类型</span>
+          <span class="info-value">
+            <Icon :icon="server_type_icon(detail?.server_type)" width="14" />
+            {{ server_type_label(detail?.server_type) }}
+          </span>
+        </div>
+        <div class="info-cell">
           <span class="info-label">版本</span>
           <span class="info-value mono">{{ detail?.version || '—' }}</span>
         </div>
         <div class="info-cell">
-          <span class="info-label">延迟</span>
-          <span class="info-value mono">{{ detail?.latency_ms ?? '—' }} ms</span>
+          <span class="info-label">CPU 负载</span>
+          <span class="info-value mono">{{ detail?.cpu_load ?? '—' }}%</span>
+        </div>
+        <div class="info-cell">
+          <span class="info-label">系统内存</span>
+          <span class="info-value mono">{{ detail?.memory_percent ?? '—' }}%</span>
+        </div>
+        <div class="info-cell">
+          <span class="info-label">JVM 内存</span>
+          <span class="info-value mono">{{ format_mb(detail?.jvm_memory_used) }} / {{ format_mb(detail?.jvm_memory_max) }}</span>
         </div>
         <div class="info-cell info-cell--grow">
           <span class="info-label"
@@ -273,6 +296,19 @@ function handle_command_keydown(event) {
   border-radius: 50%;
 }
 
+.server-type-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.info-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
 .server-dot--on {
   background: var(--success);
 }
@@ -303,11 +339,6 @@ function handle_command_keydown(event) {
 .info-label {
   font-size: var(--text-xs);
   color: var(--text-muted);
-}
-
-.info-value {
-  font-size: var(--text-md);
-  font-weight: 600;
 }
 
 .detail-grid {

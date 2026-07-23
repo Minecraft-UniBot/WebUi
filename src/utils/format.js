@@ -28,6 +28,19 @@ export function format_bytes(bytes) {
   return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`
 }
 
+/** MB → 可读大小（自动换算为 GB 等） */
+export function format_mb(megabytes) {
+  if (!megabytes && megabytes !== 0) return '—'
+  const units = ['MB', 'GB', 'TB']
+  let value = megabytes
+  let index = 0
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024
+    index += 1
+  }
+  return `${value.toFixed(index === 0 ? 0 : 2)} ${units[index]}`
+}
+
 /** ISO 时间 → 本地可读格式 */
 export function format_datetime(iso_string) {
   if (!iso_string) return '—'

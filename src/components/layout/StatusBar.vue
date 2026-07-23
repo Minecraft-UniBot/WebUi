@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useStatusStore } from '@/stores/status'
-import { format_uptime } from '@/utils/format'
+import { format_uptime, format_mb } from '@/utils/format'
 
 const status_store = useStatusStore()
 const { status } = storeToRefs(status_store)
@@ -16,7 +16,7 @@ const uptime_text = computed(() => format_uptime(status.value?.uptime))
     <span class="statusbar-sep">·</span>
     <span>运行 {{ uptime_text }}</span>
     <span class="statusbar-sep">·</span>
-    <span>内存 {{ status?.memory_mb ?? '—' }} MB</span>
+    <span>内存 {{ format_mb(status?.memory_mb) }}</span>
     <span class="statusbar-sep">·</span>
     <span>CPU {{ status?.cpu_percent ?? '—' }}%</span>
   </footer>

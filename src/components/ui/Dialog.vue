@@ -33,9 +33,12 @@ defineEmits(['confirm'])
     </DialogTrigger>
     <DialogPortal>
       <DialogOverlay class="ui-dialog-overlay" />
-      <DialogContent class="ui-dialog-content">
+      <DialogContent
+        class="ui-dialog-content"
+        :aria-describedby="description ? 'dialog-description' : undefined"
+      >
         <DialogTitle class="ui-dialog-title">{{ title }}</DialogTitle>
-        <DialogDescription v-if="description" class="ui-dialog-description">
+        <DialogDescription v-if="description" id="dialog-description" class="ui-dialog-description">
           {{ description }}
         </DialogDescription>
         <div class="ui-dialog-body">
@@ -59,7 +62,7 @@ defineEmits(['confirm'])
   position: fixed;
   inset: 0;
   background: rgb(24 24 27 / 0.45);
-  z-index: 200;
+  z-index: var(--z-overlay);
   animation: overlay-fade-in 150ms ease-out;
 }
 
@@ -76,7 +79,7 @@ defineEmits(['confirm'])
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: var(--space-6);
-  z-index: 201;
+  z-index: var(--z-dialog);
   animation: dialog-pop-in 180ms ease-out;
 }
 

@@ -12,6 +12,7 @@ import Dialog from '@/components/ui/Dialog.vue'
 import Textarea from '@/components/ui/Textarea.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import Spinner from '@/components/ui/Spinner.vue'
+import { server_type_icon, server_type_label } from '@/utils/server'
 
 const router = useRouter()
 const server_store = useServerStore()
@@ -95,6 +96,12 @@ async function submit_broadcast() {
       >
         <div class="server-card-head">
           <div class="server-card-name">
+            <Icon
+              class="server-type-icon"
+              :icon="server_type_icon(server.server_type)"
+              width="16"
+              :title="server_type_label(server.server_type)"
+            />
             <span
               class="server-dot"
               :class="server.online ? 'server-dot--on' : 'server-dot--off'"
@@ -118,8 +125,12 @@ async function submit_broadcast() {
             <span>{{ server.version || '—' }}</span>
           </div>
           <div class="server-stat">
-            <Icon icon="lucide:activity" width="14" />
-            <span>{{ server.latency_ms }}ms</span>
+            <Icon icon="lucide:cpu" width="14" />
+            <span>CPU {{ server.cpu_load ?? '—' }}%</span>
+          </div>
+          <div class="server-stat">
+            <Icon icon="lucide:hard-drive" width="14" />
+            <span>内存 {{ server.memory_percent ?? '—' }}%</span>
           </div>
         </div>
       </article>
@@ -196,6 +207,11 @@ async function submit_broadcast() {
   flex-shrink: 0;
 }
 
+.server-type-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
 .server-dot--on {
   background: var(--success);
 }
@@ -216,8 +232,8 @@ async function submit_broadcast() {
 }
 
 .server-card-stats {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border);

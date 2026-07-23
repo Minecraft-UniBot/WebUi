@@ -46,6 +46,19 @@ defineProps({
   </SelectRoot>
 </template>
 
+<style>
+.ui-select-content {
+  position: relative;
+  min-width: var(--reka-select-trigger-width, 120px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1);
+  z-index: var(--z-dropdown);
+}
+</style>
+
 <style scoped>
 .ui-select-trigger {
   display: inline-flex;
@@ -69,17 +82,6 @@ defineProps({
 
 .ui-select-trigger[data-state='open'] {
   border-color: var(--accent);
-}
-
-.ui-select-content {
-  min-width: var(--reka-select-trigger-width, 120px);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  padding: var(--space-1);
-  /* 需高于 Dialog 遮罩层（z-index: 200），否则 Dialog 内的下拉选项会被拦截 */
-  z-index: 300;
 }
 
 .ui-select-item {
