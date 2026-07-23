@@ -106,6 +106,31 @@ function remove_list_item(key, index) {
   handle_update(key, current)
 }
 
+function keyword_entries(key) {
+  return Object.entries(draft_value(key) || {}).map(([reply, keywords]) => ({ reply, keywords }))
+}
+
+function update_keyword_entry(key, entry_index, property, value) {
+  const entries = keyword_entries(key)
+  entries[entry_index][property] = value
+  handle_update(
+    key,
+    Object.fromEntries(entries.map((entry) => [entry.reply, entry.keywords])),
+  )
+}
+
+function add_keyword_entry(key) {
+  const entries = keyword_entries(key)
+  entries.push({ reply: '', keywords: [] })
+  handle_update(key, Object.fromEntries(entries.map((entry) => [entry.reply, entry.keywords])))
+}
+
+function remove_keyword_entry(key, entry_index) {
+  const entries = keyword_entries(key)
+  entries.splice(entry_index, 1)
+  handle_update(key, Object.fromEntries(entries.map((entry) => [entry.reply, entry.keywords])))
+}
+
 // 列表编辑器（.env）
 function add_env_list_item(key) {
   const current = env_draft_value(key)
@@ -307,6 +332,36 @@ async function submit_remove_plugin(plugin) {
                     <Button variant="secondary" size="sm" @click="add_list_item(field.key)">
                       <Icon icon="lucide:plus" width="13" />
                       添加一项
+                    </Button>
+                  </div>
+                  <div v-else-if="field.type === 'keyword_map'" class="keyword-editor">
+                    <div
+                      v-for="(entry, entry_index) in keyword_entries(field.key)"
+                      :key="entry_index"
+                      class="keyword-entry"
+                    >
+                      <Input
+                        :model-value="entry.reply"
+                        placeholder="回复内容"
+                        @update:model-value="(value) => update_keyword_entry(field.key, entry_index, 'reply', value)"
+                      />
+                      <Input
+                        :model-value="entry.keywords.join(', ')"
+                        placeholder="关键词，用逗号分隔"
+                        @update:model-value="(value) => update_keyword_entry(field.key, entry_index, 'keywords', value.split(',').map((item) => item.trim()).filter(Boolean))"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon-only
+                        @click="remove_keyword_entry(field.key, entry_index)"
+                      >
+                        <Icon icon="lucide:x" width="14" />
+                      </Button>
+                    </div>
+                    <Button variant="secondary" size="sm" @click="add_keyword_entry(field.key)">
+                      <Icon icon="lucide:plus" width="13" />
+                      添加一条规则
                     </Button>
                   </div>
                   <Input
@@ -678,6 +733,21 @@ async function submit_remove_plugin(plugin) {
   width: 100%;
 }
 
+.keyword-editor {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.keyword-entry {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: var(--space-1);
+  width: 100%;
+}
+
 /* diff 预览 */
 .diff-list {
   display: flex;
@@ -730,6 +800,10 @@ async function submit_remove_plugin(plugin) {
 
   .field-control {
     width: 100%;
+  }
+
+  .keyword-entry {
+    grid-template-columns: 1fr;
   }
 }
 
