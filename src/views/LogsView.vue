@@ -3,7 +3,6 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import { storeToRefs } from 'pinia'
 import { useLogStore } from '@/stores/log'
-import { useAuthStore } from '@/stores/auth'
 import { use_toast } from '@/composables/use_toast'
 import { use_websocket } from '@/composables/use_websocket'
 import Button from '@/components/ui/Button.vue'
@@ -13,11 +12,9 @@ import Badge from '@/components/ui/Badge.vue'
 import Pagination from '@/components/ui/Pagination.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import Spinner from '@/components/ui/Spinner.vue'
-import Dialog from '@/components/ui/Dialog.vue'
 import { format_bytes, format_datetime, level_class } from '@/utils/format'
 
 const log_store = useLogStore()
-const auth_store = useAuthStore()
 const toast = use_toast()
 const { on_event } = use_websocket()
 const {
@@ -37,8 +34,6 @@ const keyword_input = ref('')
 const auto_scroll = ref(true)
 const live_logs = ref([])
 const live_container = ref(null)
-const delete_target = ref('')
-const deleting = ref(false)
 
 let unsubscribe_log = null
 
@@ -121,23 +116,6 @@ async function handle_page_change(target_page) {
     toast.error(error.message || '加载失败')
   }
 }
-
-function confirm_delete(name) {
-  delete_target.value = name
-}
-
-async function submit_delete() {
-  deleting.value = true
-  try {
-    await log_store.delete_file(delete_target.value)
-    toast.success('日志文件已删除')
-    delete_target.value = ''
-  } catch (error) {
-    toast.error(error.message || '删除失败')
-  } finally {
-    deleting.value = false
-  }
-}
 </script>
 
 <template>
@@ -194,14 +172,6 @@ async function submit_delete() {
                 {{ format_bytes(file.size) }} · {{ format_datetime(file.modified) }}
               </span>
             </div>
-            <button
-              v-if="auth_store.is_admin"
-              class="file-delete"
-              title="删除"
-              @click.stop="confirm_delete(file.name)"
-            >
-              <Icon icon="lucide:trash-2" width="13" />
-            </button>
           </li>
           <li v-if="file_list.length === 0" class="file-empty">暂无日志文件</li>
         </ul>
@@ -233,14 +203,20 @@ async function submit_delete() {
           <EmptyState icon="lucide:search-x" title="没有匹配的日志行" />
         </div>
         <div v-else class="log-content">
-          <div v-for="item in log_items" :key="item.line" class="log-line">
-            <span class="line-no">{{ item.line }}</span>
-            <span class="log-time mono">{{ item.time || '—' }}</span>
-            <span class="log-level mono" :class="level_class(item.level)">
-              {{ item.level || '—' }}
-            </span>
-            <span class="log-message">{{ item.message }}</span>
-          </div>
+          <template v-for="item in log_items">
+            <div v-if="item.level" class="log-line" :key="item.line">
+              <span class="line-no">{{ item.line }}</span>
+              <span class="log-time mono">{{ item.time }}</span>
+              <span class="log-level mono" :class="level_class(item.level)">
+                {{ item.level }}
+              </span>
+              <span class="log-message">{{ item.message }}</span>
+            </div>
+            <div v-else class="log-line log-line" :key="item.line + 500">
+              <span class="line-no">{{ item.line }}</span>
+              <span class="log-message">{{ item.message }}</span>
+            </div>
+          </template>
         </div>
 
         <div v-if="total > 0" class="content-footer">
@@ -283,18 +259,6 @@ async function submit_delete() {
         </div>
       </div>
     </section>
-
-    <!-- 删除确认 -->
-    <Dialog
-      :model-value="Boolean(delete_target)"
-      title="删除日志文件"
-      :description="`确定要删除 ${delete_target} 吗？此操作不可恢复。`"
-      confirm-text="删除"
-      confirm-variant="danger"
-      :loading="deleting"
-      @update:model-value="(open) => !open && (delete_target = '')"
-      @confirm="submit_delete"
-    />
   </div>
 </template>
 
@@ -402,24 +366,6 @@ async function submit_delete() {
 .file-meta {
   font-size: 11px;
   color: var(--text-muted);
-}
-
-.file-delete {
-  color: var(--text-muted);
-  padding: var(--space-1);
-  border-radius: 4px;
-  opacity: 0;
-  transition:
-    opacity var(--transition),
-    color var(--transition);
-}
-
-.file-item:hover .file-delete {
-  opacity: 1;
-}
-
-.file-delete:hover {
-  color: var(--danger);
 }
 
 .file-empty {

@@ -1,20 +1,57 @@
 /**
  * 日志 Store：文件列表 + 内容分页过滤
+ * 正则解析 loguru 格式：2026-07-23 13:51:27.725 | SUCCESS  | module:line - message
  */
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { http } from '@/utils/http'
+
+const LOG_LINE_PATTERN = /^(?<date>\d{4}-\d{2}-\d{2})\s+(?<time>\d{2}:\d{2}:\d{2}\.\d+)\s*\|\s*(?<level>\w+)\s*\|\s*(?<module>[^-]+?)\s*-\s*(?<message>.*)$/
+
+function parse_line(raw) {
+  const match = raw.text.match(LOG_LINE_PATTERN)
+  if (match) {
+    return {
+      line: raw.line,
+      date: match.groups.date,
+      time: match.groups.time,
+      level: match.groups.level,
+      module: match.groups.module.trim(),
+      message: match.groups.message,
+    }
+  }
+  return { line: raw.line, date: '', time: '', level: '', module: '', message: raw.text }
+}
 
 export const useLogStore = defineStore('log', () => {
   const file_list = ref([])
   const current_file = ref('')
-  const log_items = ref([])
-  const total = ref(0)
-  const page = ref(1)
-  const page_size = ref(500)
+  const raw_lines = ref([])
   const level_filter = ref('all')
   const keyword_filter = ref('')
+  const page = ref(1)
+  const page_size = ref(500)
   const loading = ref(false)
+
+  const parsed_lines = computed(() => raw_lines.value.map(parse_line))
+
+  const filtered_lines = computed(() => {
+    let items = parsed_lines.value
+    if (level_filter.value && level_filter.value !== 'all') {
+      items = items.filter((item) => item.level === level_filter.value)
+    }
+    if (keyword_filter.value) {
+      items = items.filter((item) => item.message.includes(keyword_filter.value))
+    }
+    return items
+  })
+
+  const total = computed(() => filtered_lines.value.length)
+
+  const log_items = computed(() => {
+    const start = (page.value - 1) * page_size.value
+    return filtered_lines.value.slice(start, start + page_size.value)
+  })
 
   async function fetch_file_list() {
     file_list.value = (await http.get('/api/logs')) || []
@@ -25,29 +62,10 @@ export const useLogStore = defineStore('log', () => {
     if (!current_file.value) return
     loading.value = true
     try {
-      const data = await http.get(`/api/logs/${encodeURIComponent(current_file.value)}`, {
-        query: {
-          level: level_filter.value === 'all' ? '' : level_filter.value,
-          keyword: keyword_filter.value,
-          page: page.value,
-          page_size: page_size.value,
-        },
-      })
-      log_items.value = data.items
-      total.value = data.total
+      raw_lines.value = (await http.get(`/api/logs/${encodeURIComponent(current_file.value)}`)) || []
     } finally {
       loading.value = false
     }
-  }
-
-  async function delete_file(name) {
-    await http.delete(`/api/logs/${encodeURIComponent(name)}`)
-    if (current_file.value === name) {
-      current_file.value = ''
-      log_items.value = []
-      total.value = 0
-    }
-    await fetch_file_list()
   }
 
   function select_file(name) {
@@ -81,7 +99,6 @@ export const useLogStore = defineStore('log', () => {
     loading,
     fetch_file_list,
     fetch_content,
-    delete_file,
     select_file,
     set_level_filter,
     set_keyword_filter,
