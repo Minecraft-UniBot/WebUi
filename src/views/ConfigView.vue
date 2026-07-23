@@ -31,7 +31,6 @@ const {
   has_env_changes,
   nonebot_adapters,
   nonebot_plugins,
-  nonebot_plugin_dirs,
   nonebot_loading,
 } = storeToRefs(config_store)
 
@@ -189,9 +188,9 @@ async function submit_add_plugin() {
   }
 }
 
-async function submit_remove_plugin(module_name) {
+async function submit_remove_plugin(plugin) {
   try {
-    await config_store.remove_plugin(module_name, module_name)
+    await config_store.remove_plugin(plugin.module_name, plugin.module_name)
     toast.success('插件已移除，重启后生效')
   } catch (error) {
     toast.error(error.message || '移除失败')
@@ -469,9 +468,10 @@ async function submit_remove_plugin(module_name) {
             </div>
             <div class="card-body">
               <ul class="nonebot-list">
-                <li v-for="plugin in nonebot_plugins" :key="plugin" class="nonebot-item">
+                <li v-for="plugin in nonebot_plugins" :key="plugin.module_name" class="nonebot-item">
                   <div class="nonebot-item-info">
-                    <span class="mono">{{ plugin }}</span>
+                    <span class="mono">{{ plugin.module_name }}</span>
+                    <span class="text-xs text-muted">{{ plugin.enabled ? '已启用' : '已禁用' }}</span>
                   </div>
                   <Button variant="ghost" size="sm" icon-only @click="submit_remove_plugin(plugin)">
                     <Icon icon="lucide:trash-2" width="14" />
@@ -486,24 +486,6 @@ async function submit_remove_plugin(module_name) {
                   添加
                 </Button>
               </form>
-            </div>
-          </section>
-
-          <!-- 插件目录 -->
-          <section class="card">
-            <div class="card-header">
-              <h3 class="card-title">插件目录</h3>
-            </div>
-            <div class="card-body">
-              <ul class="nonebot-list">
-                <li v-for="dir in nonebot_plugin_dirs" :key="dir" class="nonebot-item">
-                  <div class="nonebot-item-info">
-                    <Icon icon="lucide:folder" width="14" class="text-muted" />
-                    <span class="mono">{{ dir }}</span>
-                  </div>
-                </li>
-                <li v-if="nonebot_plugin_dirs.length === 0" class="nonebot-empty">暂无插件目录</li>
-              </ul>
             </div>
           </section>
 

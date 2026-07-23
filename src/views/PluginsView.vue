@@ -27,7 +27,7 @@ const tabs = [
   { value: 'market', label: '插件市场', icon: 'lucide:store' },
 ]
 
-const type_labels = { adapter: '适配器', plugin: '插件', library: '依赖库' }
+const type_labels = { builtin: '内置插件', dependency: '依赖插件', external: '外部插件' }
 
 onMounted(() => {
   refresh_installed()
@@ -106,7 +106,7 @@ async function search_market() {
               </div>
               <Switch
                 :model-value="plugin.enabled"
-                :disabled="!auth_store.is_admin || toggling === plugin.name"
+                :disabled="!plugin.can_disable || !auth_store.is_admin || toggling === plugin.name"
                 @update:model-value="(value) => toggle_plugin(plugin, value)"
               />
             </div>

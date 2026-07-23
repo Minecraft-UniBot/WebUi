@@ -25,7 +25,6 @@ export const useConfigStore = defineStore('config', () => {
   // pyproject.toml NoneBot 配置
   const nonebot_adapters = ref([])
   const nonebot_plugins = ref([])
-  const nonebot_plugin_dirs = ref([])
   const nonebot_loading = ref(false)
 
   /** 草稿相对原配置的变更项：[{ key, label, old_value, new_value }] */
@@ -93,7 +92,6 @@ export const useConfigStore = defineStore('config', () => {
       const data = await http.get('/api/config/nonebot')
       nonebot_adapters.value = data.adapters || []
       nonebot_plugins.value = data.plugins || []
-      nonebot_plugin_dirs.value = data.plugin_dirs || []
     } finally {
       nonebot_loading.value = false
     }
@@ -207,7 +205,6 @@ export const useConfigStore = defineStore('config', () => {
     // nonebot
     nonebot_adapters,
     nonebot_plugins,
-    nonebot_plugin_dirs,
     nonebot_loading,
     fetch_nonebot,
     add_adapter,
